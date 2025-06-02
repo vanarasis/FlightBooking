@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -180,6 +181,44 @@ public class AuthService {
         log.info("User logged out successfully: {}", user.getEmail());
         return "Logged out successfully";
     }
+
+    // Additional method needed by CustomerController
+    public Optional<User> findByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+
+    // Additional method to get user by email (throws exception if not found)
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    // Method to check if user exists by email
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+    // Method to save/update user
+    public User saveUser(User user) {
+        return userRepository.save(user);
+    }
+
+    // Method to get all users (for admin)
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    // Method to get all users by role
+    public List<User> getUsersByRole(User.UserRole role) {
+        return userRepository.findByRole(role);
+    }
+
+    // Method to get all customers only
+    public List<User> getAllCustomers() {
+        return userRepository.findByRole(User.UserRole.CUSTOMER);
+    }
+
+
 
     public User validateSession(String sessionId) {
         return userRepository.findBySessionId(sessionId)

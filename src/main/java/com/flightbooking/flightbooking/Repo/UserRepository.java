@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -24,4 +25,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Modifying
     @Query("UPDATE User u SET u.otpCode = null, u.otpExpiry = null WHERE u.email = :email")
     void clearOtpData(@Param("email") String email);
+
+    // In your UserRepository interface
+    List<User> findAll();
+    List<User> findByRole(User.UserRole role);
 }
