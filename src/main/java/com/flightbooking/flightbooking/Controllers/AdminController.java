@@ -7,6 +7,7 @@ import com.flightbooking.flightbooking.Services.AirportService;
 import com.flightbooking.flightbooking.Services.AuthService;
 import com.flightbooking.flightbooking.Services.BookingService;
 import com.flightbooking.flightbooking.Services.FlightService;
+import com.flightbooking.flightbooking.Util.FlightStatusScheduler;
 import com.flightbooking.flightbooking.Util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -312,6 +316,118 @@ public class AdminController {
                             .body(Map.of("success", false, "message", "Booking not found")));
         } catch (Exception e) {
             log.error("Get booking by reference error", e);
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    private final FlightStatusScheduler flightStatusScheduler; // Add this field to constructor
+
+    // Manual flight status update endpoint
+    @PostMapping("/flights/{id}/update-status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> updateFlightStatus(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        try {
+            String statusStr = request.get("status");
+            Flight.FlightStatus status = Flight.FlightStatus.valueOf(statusStr.toUpperCase());
+
+            Flight flight = flightService.getFlightById(id)
+                    .orElseThrow(() -> new RuntimeException("Flight not found"));
+
+            Flight updatedFlight = new Flight();
+            updatedFlight.setStatus(status);
+            // Copy other fields from existing flight
+            updatedFlight.setFlightNumber(flight.getFlightNumber());
+            updatedFlight.setDepartureAirport(flight.getDepartureAirport());
+            updatedFlight.setArrivalAirport(flight.getArrivalAirport());
+            updatedFlight.setDepartureTime(flight.getDepartureTime());
+            updatedFlight.setArrivalTime(flight.getArrivalTime());
+            updatedFlight.setAirline(flight.getAirline());
+            updatedFlight.setPrice(flight.getPrice());
+            updatedFlight.setTotalSeats(flight.getTotalSeats());
+            updatedFlight.setAvailableSeats(flight.getAvailableSeats());
+
+            Flight result = flightService.updateFlight(id, updatedFlight);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Flight status updated successfully",
+                    "data", result
+            ));
+        } catch (Exception e) {
+            log.error("Update flight status error", e);
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // Update flight arrival time for testing
+    @PostMapping("/flights/{id}/update-arrival-time")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> updateArrivalTime(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        try {
+            String arrivalTimeStr = request.get("arrivalTime");
+            LocalDateTime arrivalTime = LocalDateTime.parse(arrivalTimeStr);
+
+            Flight flight = flightService.getFlightById(id)
+                    .orElseThrow(() -> new RuntimeException("Flight not found"));
+
+            Flight updatedFlight = new Flight();
+            // Copy all fields from existing flight
+            updatedFlight.setFlightNumber(flight.getFlightNumber());
+            updatedFlight.setDepartureAirport(flight.getDepartureAirport());
+            updatedFlight.setArrivalAirport(flight.getArrivalAirport());
+            updatedFlight.setDepartureTime(flight.getDepartureTime());
+            updatedFlight.setArrivalTime(arrivalTime); // Update arrival time
+            updatedFlight.setAirline(flight.getAirline());
+            updatedFlight.setPrice(flight.getPrice());
+            updatedFlight.setTotalSeats(flight.getTotalSeats());
+            updatedFlight.setAvailableSeats(flight.getAvailableSeats());
+            updatedFlight.setStatus(flight.getStatus());
+
+            Flight result = flightService.updateFlight(id, updatedFlight);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Flight arrival time updated successfully",
+                    "data", result
+            ));
+        } catch (Exception e) {
+            log.error("Update arrival time error", e);
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // Trigger manual status update
+    @PostMapping("/flights/update-statuses")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> triggerStatusUpdate() {
+        try {
+            String result = flightStatusScheduler.updateFlightStatusesManually();
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", result
+            ));
+        } catch (Exception e) {
+            log.error("Manual status update error", e);
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // Get current IST time
+    @GetMapping("/current-time")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getCurrentTime() {
+        try {
+            ZonedDateTime istTime = ZonedDateTime.now(ZoneId.of("Asia/Kolkata"));
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "currentTimeIST", istTime.toLocalDateTime(),
+                    "timezone", "Asia/Kolkata"
+            ));
+        } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(Map.of("success", false, "message", e.getMessage()));
         }

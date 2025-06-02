@@ -25,5 +25,7 @@ public interface FlightRepository extends JpaRepository<Flight, Long>{
 
     List<Flight> findByAirline(String airline);
     List<Flight> findByStatus(Flight.FlightStatus status);
+    // Add this method to FlightRepository.java
+    List<Flight> findByStatusIn(List<Flight.FlightStatus> statuses);
 
 }
