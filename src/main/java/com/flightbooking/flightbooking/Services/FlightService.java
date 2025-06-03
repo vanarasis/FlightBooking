@@ -5,10 +5,12 @@ import com.flightbooking.flightbooking.Repo.AirportRepository;
 import com.flightbooking.flightbooking.Repo.FlightRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FlightService {
@@ -39,6 +41,15 @@ public class FlightService {
         // Set the complete airport objects
         flight.setDepartureAirport(departureAirport);
         flight.setArrivalAirport(arrivalAirport);
+
+        // Set original airports for continuous flight tracking
+        flight.setOriginalDepartureAirport(departureAirport);
+        flight.setOriginalArrivalAirport(arrivalAirport);
+
+        // Initialize cycle tracking
+        flight.setCycleCount(0);
+        flight.setLastCycleReset(LocalDateTime.now());
+        flight.setIsRouteReversed(false);
 
         return flightRepository.save(flight);
     }
@@ -88,6 +99,14 @@ public class FlightService {
         flight.setAvailableSeats(flightDetails.getAvailableSeats());
         flight.setStatus(flightDetails.getStatus());
 
+        // Update flight duration and ground time if provided
+        if (flightDetails.getFlightDurationHours() != null) {
+            flight.setFlightDurationHours(flightDetails.getFlightDurationHours());
+        }
+        if (flightDetails.getGroundTimeHours() != null) {
+            flight.setGroundTimeHours(flightDetails.getGroundTimeHours());
+        }
+
         return flightRepository.save(flight);
     }
 
@@ -108,5 +127,29 @@ public class FlightService {
             return true;
         }
         return false;
+    }
+
+    // New method to get flight cycle information
+    public String getFlightCycleInfo(Long flightId) {
+        Flight flight = flightRepository.findById(flightId)
+                .orElseThrow(() -> new RuntimeException("Flight not found"));
+
+        return String.format("Flight %s has completed %d cycles. Current route: %s → %s. Route reversed: %s",
+                flight.getFlightNumber(),
+                flight.getCycleCount(),
+                flight.getDepartureAirport().getCode(),
+                flight.getArrivalAirport().getCode(),
+                flight.getIsRouteReversed() ? "Yes" : "No");
+    }
+
+    // Method to manually reset cycle count for a specific flight
+    public String resetFlightCycleCount(Long flightId) {
+        Flight flight = flightRepository.findById(flightId)
+                .orElseThrow(() -> new RuntimeException("Flight not found"));
+
+        flight.resetCycleCount();
+        flightRepository.save(flight);
+
+        return String.format("Cycle count reset for flight %s", flight.getFlightNumber());
     }
 }
