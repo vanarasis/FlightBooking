@@ -432,4 +432,96 @@ public class AdminController {
                     .body(Map.of("success", false, "message", e.getMessage()));
         }
     }
+
+    @GetMapping("/flights/cycle-stats")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getFlightCycleStats() {
+        try {
+            String stats = flightStatusScheduler.getFlightCycleStats();
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Flight cycle statistics retrieved",
+                    "data", stats
+            ));
+        } catch (Exception e) {
+            log.error("Get cycle stats error", e);
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // Get specific flight cycle info
+    @GetMapping("/flights/{id}/cycle-info")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getFlightCycleInfo(@PathVariable Long id) {
+        try {
+            String info = flightService.getFlightCycleInfo(id);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Flight cycle info retrieved",
+                    "data", info
+            ));
+        } catch (Exception e) {
+            log.error("Get flight cycle info error", e);
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // Reset cycle count for specific flight
+    @PostMapping("/flights/{id}/reset-cycles")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> resetFlightCycles(@PathVariable Long id) {
+        try {
+            String result = flightService.resetFlightCycleCount(id);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", result
+            ));
+        } catch (Exception e) {
+            log.error("Reset flight cycles error", e);
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // View active flights with detailed status
+    @GetMapping("/flights/active-status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getActiveFlightStatus() {
+        try {
+            List<Flight> flights = flightService.getAllFlights();
+            ZonedDateTime istTime = ZonedDateTime.now(ZoneId.of("Asia/Kolkata"));
+            LocalDateTime currentTime = istTime.toLocalDateTime();
+
+            List<Map<String, Object>> flightStatus = flights.stream()
+                    .filter(f -> f.getStatus() != Flight.FlightStatus.CANCELLED)
+                    .map(f -> Map.<String, Object>of(
+                            "flightNumber", f.getFlightNumber(),
+                            "status", f.getStatus().toString(),
+                            "currentRoute", f.getDepartureAirport().getCode() + " → " + f.getArrivalAirport().getCode(),
+                            "originalRoute", f.getOriginalDepartureAirport().getCode() + " → " + f.getOriginalArrivalAirport().getCode(),
+                            "isReversed", f.getIsRouteReversed(),
+                            "cycleCount", f.getCycleCount(),
+                            "departureTime", f.getDepartureTime(),
+                            "arrivalTime", f.getArrivalTime(),
+                            "nextDepartureTime", f.getNextDepartureTime(),
+                            "lastCycleReset", f.getLastCycleReset()
+                    ))
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "currentTime", currentTime,
+                    "timezone", "Asia/Kolkata",
+                    "totalActiveFlights", flightStatus.size(),
+                    "data", flightStatus
+            ));
+        } catch (Exception e) {
+            log.error("Get active flight status error", e);
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+
+    }
 }
